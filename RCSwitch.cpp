@@ -607,16 +607,16 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
   Protocol pro;
   memcpy_P(&pro, &proto[p - 1], sizeof(Protocol));
 #endif
-  unsigned int i = changeCount - 2;
+  unsigned int i = changeCount - 2, j;
   uint64_t code[3] = {0};
   const unsigned int delay = 2000;//RCSwitch::timings[0] / pro.syncFactor.low;
-  const unsigned int delayTolerance = 650;//delay * RCSwitch::nReceiveTolerance / 100;
+  const unsigned int delayTolerance = delay * RCSwitch::nReceiveTolerance / 100;
 
   if (changeCount < 7) {    // ignore very short transmissions: no device sends them, so this must be noise
     return false;
   }
 
-  for (int j = 0; j < 3; j++) {
+  for (j = 0; j < 3; j++) {
     for (; i > 2; i -= 2) {
       code[j] <<= 1;
       if (diff(RCSwitch::timings[i], delay * pro.zero.high) < delayTolerance &&
@@ -628,9 +628,9 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
         code[j] |= 1;
       } else {
         // Failed
-        if (j == 0)
+        if (j == 0) {
           return false;
-        else
+        } else
           break;
       }
       if ((i - 1) / 2 == 46) {
@@ -639,13 +639,18 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
       }
     }
   }
-
+  j = 0;
+  if (code[0] == code[1])
+    j = 1;
+  if (code[1] == code[2])
+    j+= 10;
+  if (code[0] == code[2])
+    j+= 100;
   if (changeCount > 7) {    // ignore very short transmissions: no device sends them, so this must be noise
-    Serial.println(changeCount);
-    RCSwitch::nReceivedValue = code;
+    RCSwitch::nReceivedValue = code[0];
     RCSwitch::nReceivedBitlength = (changeCount - 1) / 2;
     RCSwitch::nReceivedDelay = delay;
-    RCSwitch::nReceivedProtocol = p;
+    RCSwitch::nReceivedProtocol = j;
   }
 
   return true;
@@ -654,7 +659,6 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
 void RECEIVE_ATTR RCSwitch::handleInterrupt() {
   static unsigned int changeCount = 0;
   static unsigned long lastTime = 0;
-  static unsigned int repeatCount = 0;
 
   const long time = micros();
   const unsigned int duration = time - lastTime;
@@ -676,7 +680,6 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
   // detect overflow
   if (changeCount >= RCSWITCH_MAX_CHANGES || duration < 1000) {
     changeCount = 0;
-    repeatCount = 0;
     if (duration < 1000)
       return;
   }

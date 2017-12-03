@@ -7,8 +7,44 @@
 #include "RCSwitch.h"
 #include <SoftwareSerial.h>
 
+#define CODE_LEN 46
 RCSwitch mySwitch = RCSwitch();
 SoftwareSerial mySerial(10, 1); // RX, TX
+
+static inline uint64_t extract64(uint64_t value, int start, int length)
+{
+  return (value >> start) & (~0ULL >> (64 - length));
+}
+
+void printBinary(uint64_t value, int len)
+{
+  for (int i = 0; i < len; i++) {
+    if (value & 0x1) {
+      mySerial.print('1');
+
+    } else {
+      mySerial.print('0');
+    }
+    value >>= 1;
+  }
+}
+
+void convertBinary(char *buf, int buf_len, uint64_t value, int len)
+{
+  if (len > buf_len) {
+    memset(buf, buf_len, 0);
+    return;
+  }
+  for (int i = 0; i < len; i++) {
+    if (value & 0x1) {
+      buf[i] = '1';
+    } else {
+      buf[i] = '0';
+    }
+    value >>= 1;
+  }
+  buf[len - 1] = 0;
+}
 
 void setup() {
   mySerial.begin(4800);
@@ -19,64 +55,43 @@ void setup() {
   mySwitch.enableReceive(0);  // Receiver on interrupt 0 => that is pin #2
 }
 
-char received[47];
-char printing[47];
 long last_time;
 bool led_on = false;
-void loop() {
+
+void loop()
+{
   uint64_t v;
   const long time = micros();
 
   if (mySwitch.available()) {
-
     int value = mySwitch.getReceivedValue();
 
     if (value == 0) {
-      mySerial.print("Unknown encoding");
+      mySerial.println("Unknown encoding");
     } else {
-      mySerial.print("Received :");
-      v = mySwitch.getReceivedValue();
-      for (int i = 0; i < 46; i++) {
-        if (v & 0x1)
-          received[i] = '1';
-        else
-          received[i] = '0';
-        v >>= 1;
-      }
-      received[46] = 0;
-      mySerial.println(received);
-      // the common thing
-      memcpy(printing, received, 25);
-      printing[25] = ' ';
-      printing[26] = 0;
-      mySerial.print(printing);
-      // 3 decimal
-      for (int i = 0; i < 3; i++) {
-        memcpy(printing, (received + 25) + (i * 4), 4);
-        printing[4] = ' ';
-        printing[5] = 0;
-        mySerial.print(printing);
-      }
-      unsigned long temp = 0;
-      for (int i = 25 + 11; i >= 25; i--) {
-        if (received[i] == '1')
-          temp |= 1;
-        if (i > 25)
-          temp <<= 1;
-      }
-      memcpy(printing, received + 46 - 9, 9);
-      printing[9] = ' ';
-      printing[10] = 0;
-      mySerial.print(printing);
-      mySerial.println(" / ");
-      // temp =656 = 25.6
-      mySerial.print("assumed temp: ");
-      mySerial.println(temp - 400);
+      if (mySwitch.getReceivedBitlength() != CODE_LEN) {
+        mySerial.println("Invalid code len!");
+      } else {
+        mySerial.print("Received: ");
+        v = mySwitch.getReceivedValue();
+        printBinary(v, CODE_LEN);  mySerial.println();
+        //convertBinary(received, 47, v, CODE_LEN);
 
-      mySerial.print( mySwitch.getReceivedBitlength() );
-      mySerial.println("bit ");
-      mySerial.print("Protocol: ");
-      mySerial.println( mySwitch.getReceivedProtocol() );
+        mySerial.print("Preamble: ");
+        printBinary(extract64(v, 0, 25), 25);
+        mySerial.print(" ");
+        printBinary(extract64(v, 25, 12), 12);
+        mySerial.print(" ");
+        printBinary(extract64(v, 37, 9), 9);
+        mySerial.println();
+
+        unsigned long temp = 0;
+        temp = extract64(v, 25, 12);
+        mySerial.print("Extracted temp: ");mySerial.println(temp - 400);
+
+        mySerial.print("Protocol: ");
+        mySerial.println( mySwitch.getReceivedProtocol() );
+      }
     }
 
     mySwitch.resetAvailable();
