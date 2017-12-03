@@ -23,6 +23,8 @@ with serial.Serial('/dev/ttyUSB0', 4800, timeout=80) as ser:
 		if result:
 			temp = float(result.group(1))
 			temp /= 10
+			if temp > 50:
+				continue
 			print(temp)
 			temp = "%.1f" % (temp)
 			put_status('Temperature_Balcony', temp)
