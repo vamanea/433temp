@@ -1,6 +1,6 @@
 /*
   Simple example for receiving
-  
+
   https://github.com/sui77/rc-switch/
 */
 
@@ -28,20 +28,20 @@ void loop() {
   const long time = micros();
 
   if (mySwitch.available()) {
-    
+
     int value = mySwitch.getReceivedValue();
-    
+
     if (value == 0) {
       mySerial.print("Unknown encoding");
     } else {
       mySerial.print("Received :");
       v = mySwitch.getReceivedValue();
       for (int i = 0; i < 46; i++) {
-         if (v & 0x1)
-           received[i] = '1';
-         else
-           received[i] = '0';
-         v >>=1;
+        if (v & 0x1)
+          received[i] = '1';
+        else
+          received[i] = '0';
+        v >>= 1;
       }
       received[46] = 0;
       mySerial.println(received);
@@ -71,8 +71,8 @@ void loop() {
       mySerial.println(" / ");
       // temp =656 = 25.6
       mySerial.print("assumed temp: ");
-        mySerial.println(temp -400);
-      
+      mySerial.println(temp - 400);
+
       mySerial.print( mySwitch.getReceivedBitlength() );
       mySerial.println("bit ");
       mySerial.print("Protocol: ");
