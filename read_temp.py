@@ -14,19 +14,25 @@ def put_status(name, teme):
     if req.status_code != requests.codes.ok:
         req.raise_for_status()     
 
-with serial.Serial('/dev/ttyUSB0', 4800, timeout=80) as ser:
-	while True:
-		line = ser.readline()   # read a '\n' terminated line
-		if line == []:
-		    continue
-		result = re.match("Extracted temp: (\d+)", line)
-		if result:
-			temp = float(result.group(1))
-			temp /= 10
-			if temp > 50:
-				continue
-			print(temp)
-			temp = "%.1f" % (temp)
-			put_status('Temperature_Balcony', temp)
-		print(line)
-	ser.close()
+while True:
+    try:
+        with serial.Serial('/dev/ttyAMA0', 4800, timeout=80) as ser:
+                while True:
+                        line = ser.readline()   # read a '\n' terminated line
+                        if line == []:
+                            continue
+                        result = re.match("Extracted temp: (\d+)", line)
+                        if result:
+                                temp = float(result.group(1))
+                                temp /= 10
+                                if temp > 40:
+                                        continue
+                                print(temp)
+                                temp = "%.1f" % (temp)
+                                put_status('Temperature_Balcony', temp)
+                        print(line)
+                ser.close()
+    except:
+        pass
+    else:
+        break
